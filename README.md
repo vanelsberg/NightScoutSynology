@@ -27,8 +27,8 @@ The Nighscroout site will only be locally accessible on IP/port _0.0.0.0:1337_ o
 
 	curl localhost:1337
 
-# TODO: Add configuration for making the site accessible.
+## TODO
+Add configuration for making the site accessible.
 
-# TIP
-
+## TIP
 If you already have an external MongoDB in use (like on Heroku/Atlas), cheout the scripts under _mongo/heroku_.
