@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+
+  broker:
+    image: 'prologic/mosquitto:latest'
+    container_name: broker
+    ports:
+      - '1883:1883'
+
+  mongodb:
+    image: mongo:4.4
+    container_name: ${MONGODB_SERVER}
+    environment:
+      - TZ=Europe/Amsterdam
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_ADMINUSERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_ADMINPASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}
+      - MONGO_INITDB_USER=${MONGO_INITDB_USER}
+      - MONGO_INITDB_PASS=${MONGO_INITDB_PASS}
+    volumes:
+      - ./volume/mongo-dbdata:/data/db
+      - ./volume/dumps:/data/dumps
+      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+    networks:
+      - mongodb_network
+    ports:
+      - 27017:27017
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo ${MONGODB_SERVER}:27017/test --quiet
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  nightscout:
+    image: 'nightscout/cgm-remote-monitor:14.2.6'
+    container_name: nightscout
+    environment:
+      - NODE_ENV=production
+      - TZ=Europe/Amsterdam
+
+      # Use Heroku database
+      # - MONGO_CONNECTION=mongodb+srv://${HEROKU_user}:${HEROKU_password}@${HEROKU_host}/${HEROKU_db}
+
+      # Use local Mongo 4.4 database
+      - MONGO_CONNECTION=mongodb://${MONGO_INITDB_USER}:${MONGO_INITDB_PASS}@${MONGODB_SERVER}:27017/${MONGO_INITDB_DATABASE}
+
+      - MQTT_MONITOR=mqtt://${MONGO_INITDB_PASS}@broker
+      - PORT=1337
+      # Secure HTTPS is disabled here!
+      - INSECURE_USE_HTTP=true
+
+    env_file:
+      - ns-apisecret.env
+      - ns-settings.env
+    networks:
+      - mongodb_network
+    links:
+      - broker
+      - mongodb
+    depends_on:
+      - mongodb
+    ports:
+      - '1337:1337'
+
+networks:
+  mongodb_network:
